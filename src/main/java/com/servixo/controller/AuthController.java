@@ -97,8 +97,7 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> request) {
         String idToken = request.get("token");
-        String roleName = request.get("role"); // Optional role for registration
-        User user = authService.googleLogin(idToken, roleName);
+        User user = authService.googleLogin(idToken);
 
         String role = user.getRole().getName();
         String token = jwtUtil.generateToken(user.getEmail(), role);

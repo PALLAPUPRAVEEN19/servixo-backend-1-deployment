@@ -148,7 +148,7 @@ public class AuthService {
     }
 
     // ================= GOOGLE LOGIN =================
-    public User googleLogin(String idTokenString, String roleName) {
+    public User googleLogin(String idTokenString) {
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
                     .setAudience(Collections.singletonList(googleClientId))
@@ -171,13 +171,8 @@ public class AuthService {
                             newUser.setPassword(passwordEncoder.encode("GOOGLE_SSO_" + System.currentTimeMillis()));
                             newUser.setVerified(true);
                             
-                            // Use provided role or default to USER
-                            String finalRole = (roleName == null || roleName.trim().isEmpty()) 
-                                    ? "USER" 
-                                    : roleName.trim().toUpperCase();
-                            
-                            Role userRole = roleRepository.findByNameIgnoreCase(finalRole)
-                                    .orElseThrow(() -> new RuntimeException("Role not found: " + finalRole));
+                            Role userRole = roleRepository.findByNameIgnoreCase("USER")
+                                    .orElseThrow(() -> new RuntimeException("Default USER role not found"));
                             newUser.setRole(userRole);
                             
                             return userRepository.save(newUser);
