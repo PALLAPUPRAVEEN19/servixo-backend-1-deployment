@@ -7,10 +7,20 @@ public class LoginRequest {
 
     public LoginRequest() {}
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public String getEmail() {
+        return email == null ? null : email.trim().toLowerCase().replace(" ", "");
+    }
 
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
-    
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    // 🔥 FIX: sanitize password
+    public String getPassword() {
+        return password == null ? null : password.trim();
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
 }

@@ -11,11 +11,11 @@ import com.servixo.entity.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    // 🔥 BASIC LOGIN
-    Optional<User> findByEmail(String email);
+    // 🔥 FIXED LOGIN (CASE-INSENSITIVE)
+    Optional<User> findByEmailIgnoreCase(String email);
 
-    // 🔥 FETCH WITH ROLE
-    @Query("SELECT u FROM User u JOIN FETCH u.role WHERE u.email = :email")
+    // 🔥 FETCH WITH ROLE (FIXED)
+    @Query("SELECT u FROM User u JOIN FETCH u.role WHERE LOWER(u.email) = LOWER(:email)")
     Optional<User> findByEmailWithRole(@Param("email") String email);
 
     // 🔥 GET ALL USERS WITH ROLE
@@ -25,6 +25,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 🔥 COUNT USERS BY ROLE
     long countByRole_Name(String roleName);
 
-    // 🔥 CHECK VERIFIED USER
-    Optional<User> findByEmailAndIsVerifiedTrue(String email);
+    // 🔥 VERIFIED USER CHECK (FIXED)
+    Optional<User> findByEmailIgnoreCaseAndIsVerifiedTrue(String email);
 }

@@ -31,6 +31,13 @@ public class ServiceEntity {
     public String getTitle() { return title; }
 
     public void setTitle(String title) { this.title = title; }
+    
+    // Robust mapping alias to ensure JSON payloads with 'name' map successfully to 'title'
+    public void setName(String name) { 
+        if (this.title == null || this.title.isEmpty()) {
+            this.title = name; 
+        }
+    }
 
     public String getDescription() { return description; }
 

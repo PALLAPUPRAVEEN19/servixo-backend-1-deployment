@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.servixo.entity.Booking;
-import com.servixo.entity.Professional;
 import com.servixo.entity.ServiceEntity;
 import com.servixo.entity.User;
 import com.servixo.service.BookingService;

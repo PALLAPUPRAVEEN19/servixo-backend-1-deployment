@@ -18,7 +18,7 @@ public class CorsConfig {
         config.setAllowCredentials(true);
 
         // ✅ Allow frontend URL (React)
-        config.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:5173"));
+        config.setAllowedOriginPatterns(Arrays.asList("*"));
 
         // ✅ Allow all headers
         config.setAllowedHeaders(Arrays.asList("*"));

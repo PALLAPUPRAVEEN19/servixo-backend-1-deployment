@@ -24,7 +24,7 @@ public class AuthController {
     private AuthService authService;
 
     @Autowired
-    private JwtUtil jwtUtil; // 🔥 ADD THIS
+    private JwtUtil jwtUtil;
 
     // ================= REGISTER =================
     @PostMapping("/register")
@@ -40,6 +40,7 @@ public class AuthController {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "User registered successfully");
         response.put("email", user.getEmail());
+        response.put("role", user.getRole().getName()); // ✅ added for clarity
 
         return ResponseEntity.ok(response);
     }
@@ -56,7 +57,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // ================= VERIFY LOGIN OTP (STEP 2 - GENERATE JWT) =================
+    // ================= VERIFY LOGIN OTP =================
     @PostMapping("/verify-login-otp")
     public ResponseEntity<?> verifyLoginOtp(@RequestBody VerifyOtpRequest request) {
 
@@ -65,13 +66,19 @@ public class AuthController {
                 request.getOtp()
         );
 
-        // 🔥 GENERATE JWT HERE
-        String token = jwtUtil.generateToken(user.getEmail());
+        // 🔥 IMPROVED TOKEN (optional but better)
+        String role = user.getRole().getName();
+        String token = jwtUtil.generateToken(
+                user.getEmail(),
+                role
+        );
+        
+        System.out.println("ROLE SAVED: " + role);
 
         Map<String, Object> response = new HashMap<>();
         response.put("token", token);
         response.put("userId", user.getId());
-        response.put("role", user.getRole().getName());
+        response.put("role", role); // ✅ IMPORTANT
         response.put("name", user.getName());
 
         return ResponseEntity.ok(response);
@@ -84,5 +91,24 @@ public class AuthController {
         authService.sendOtp(request.getEmail());
 
         return ResponseEntity.ok("OTP sent successfully");
+    }
+
+    // ================= GOOGLE LOGIN =================
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> request) {
+        String idToken = request.get("token");
+        String roleName = request.get("role"); // Optional role for registration
+        User user = authService.googleLogin(idToken, roleName);
+
+        String role = user.getRole().getName();
+        String token = jwtUtil.generateToken(user.getEmail(), role);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("userId", user.getId());
+        response.put("role", role);
+        response.put("name", user.getName());
+
+        return ResponseEntity.ok(response);
     }
 }

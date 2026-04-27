@@ -20,20 +20,37 @@ public class ServiceService {
     private UserRepository userRepository;
 
     // 🔹 CREATE SERVICE (Professional)
-    public ServiceEntity createService(Long professionalId, ServiceEntity service) {
+    public ServiceEntity createService(Long professionalId, ServiceEntity request) {
 
         User user = userRepository.findById(professionalId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + professionalId));
 
-        // ✅ OPTIONAL: Ensure only PROFESSIONAL can create
+        // ✅ Only PROFESSIONAL can create services
         if (!user.getRole().getName().equalsIgnoreCase("PROFESSIONAL")) {
             throw new RuntimeException("Only professionals can create services");
         }
 
-        service.setProfessional(user);   // ✅ LINK SERVICE TO USER
-        service.setStatus("PENDING");    // ✅ DEFAULT STATUS
+        // 🔥 CRITICAL FIX: Ensure title is NOT NULL
+        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
+            // Fallback to name if title is null (in case frontend still sends 'name')
+            throw new RuntimeException("Service title cannot be null");
+        }
 
-        return serviceRepository.save(service);
+        ServiceEntity service = new ServiceEntity();
+
+        service.setTitle(request.getTitle());
+        service.setDescription(request.getDescription());
+        service.setPrice(request.getPrice());
+
+        service.setProfessional(user);
+        service.setStatus("PENDING");
+
+        ServiceEntity savedService = serviceRepository.save(service);
+        
+        // Add log as requested
+        System.out.println("SERVICE SAVED: " + savedService.getTitle());
+
+        return savedService;
     }
 
     // 🔹 ADMIN - GET ALL SERVICES
@@ -43,12 +60,10 @@ public class ServiceService {
 
     // 🔹 ADMIN - APPROVE SERVICE
     public ServiceEntity approveService(Long id) {
-
         ServiceEntity service = serviceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Service not found with id: " + id));
 
         service.setStatus("APPROVED");
-
         return serviceRepository.save(service);
     }
 
@@ -69,18 +84,19 @@ public class ServiceService {
     // 🔹 PROFESSIONAL - GET OWN SERVICES
     public List<ServiceEntity> getServicesByProfessional(Long professionalId) {
 
-        // Optional check (good practice)
         if (!userRepository.existsById(professionalId)) {
             throw new RuntimeException("Professional not found with id: " + professionalId);
         }
 
         return serviceRepository.findByProfessional_Id(professionalId);
     }
- // 🔹 SEARCH SERVICES
+
+    // 🔹 SEARCH SERVICES
     public List<ServiceEntity> searchServices(String keyword) {
         return serviceRepository
-            .findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(keyword, keyword);
+                .findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(keyword, keyword);
     }
+
     // 🔹 DELETE SERVICE
     public void deleteService(Long id) {
 

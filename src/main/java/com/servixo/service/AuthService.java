@@ -6,12 +6,21 @@ import com.servixo.repository.UserRepository;
 import com.servixo.repository.RoleRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class AuthService {
@@ -25,21 +34,37 @@ public class AuthService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Value("${google.client.id}")
+    private String googleClientId;
+
     // ================= REGISTER =================
     public User register(String name, String email, String password, String roleName) {
 
-        if (userRepository.findByEmail(email).isPresent()) {
+        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             throw new RuntimeException("User already exists");
         }
 
-        Role role = roleRepository.findByName(
-                (roleName == null || roleName.isEmpty()) ? "USER" : roleName
-        ).orElseThrow(() -> new RuntimeException("Role not found"));
+        // ✅ Normalize role (CRITICAL FIX)
+        String finalRole = (roleName == null || roleName.trim().isEmpty())
+                ? "USER"
+                : roleName.trim().toUpperCase();
+
+        System.out.println("ROLE RECEIVED: " + roleName);
+        System.out.println("ROLE USED: " + finalRole);
+
+        Role role = roleRepository.findByNameIgnoreCase(finalRole) // ✅ safer
+                .orElseThrow(() -> new RuntimeException("Role not found: " + finalRole));
 
         User user = new User();
         user.setName(name);
         user.setEmail(email);
-        user.setPassword(password);
+
+        // ✅ SECURE PASSWORD
+        user.setPassword(passwordEncoder.encode(password));
+
         user.setRole(role);
 
         return userRepository.save(user);
@@ -51,7 +76,8 @@ public class AuthService {
         User user = userRepository.findByEmailWithRole(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!user.getPassword().equals(password)) {
+        // ✅ PASSWORD CHECK (FIXED)
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("Invalid password");
         }
 
@@ -71,7 +97,6 @@ public class AuthService {
 
         System.out.println("🔥 LOGIN OTP: " + otp);
 
-        // 🔥 Response
         Map<String, Object> response = new HashMap<>();
         response.put("status", "OTP_REQUIRED");
         response.put("email", email);
@@ -82,7 +107,7 @@ public class AuthService {
     // ================= VERIFY LOGIN OTP =================
     public User verifyLoginOtp(String email, String otp) {
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (user.getOtp() == null || !user.getOtp().equals(otp)) {
@@ -105,7 +130,7 @@ public class AuthService {
     // ================= RESEND OTP =================
     public void sendOtp(String email) {
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         String otp = String.valueOf(100000 + new Random().nextInt(900000));
@@ -120,5 +145,48 @@ public class AuthService {
                 "Servixo OTP",
                 "Your OTP is: " + otp
         );
+    }
+
+    // ================= GOOGLE LOGIN =================
+    public User googleLogin(String idTokenString, String roleName) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenString);
+            if (idToken != null) {
+                Payload payload = idToken.getPayload();
+
+                String email = payload.getEmail();
+                String name = (String) payload.get("name");
+
+                return userRepository.findByEmailIgnoreCase(email)
+                        .orElseGet(() -> {
+                            // Create new user if not found
+                            User newUser = new User();
+                            newUser.setName(name);
+                            newUser.setEmail(email);
+                            // Set a dummy password for SSO users
+                            newUser.setPassword(passwordEncoder.encode("GOOGLE_SSO_" + System.currentTimeMillis()));
+                            newUser.setVerified(true);
+                            
+                            // Use provided role or default to USER
+                            String finalRole = (roleName == null || roleName.trim().isEmpty()) 
+                                    ? "USER" 
+                                    : roleName.trim().toUpperCase();
+                            
+                            Role userRole = roleRepository.findByNameIgnoreCase(finalRole)
+                                    .orElseThrow(() -> new RuntimeException("Role not found: " + finalRole));
+                            newUser.setRole(userRole);
+                            
+                            return userRepository.save(newUser);
+                        });
+            } else {
+                throw new RuntimeException("Invalid Google ID token");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error verifying Google token: " + e.getMessage());
+        }
     }
 }
